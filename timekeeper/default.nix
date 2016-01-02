@@ -28,7 +28,7 @@ let
 			 distributed-process-async
 			 ]);
         buildTools = [ ];
-        license = stdenv.lib.licenses.unfree;
+        license = stdenv.lib.licenses.mit;
       };
     };
   };
