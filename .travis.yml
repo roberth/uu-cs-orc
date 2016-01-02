@@ -1,0 +1,18 @@
+language: python
+sudo: required
+install: bash <(curl https://nixos.org/nix/install)
+script:
+- bash -c ". /home/travis/.nix-profile/etc/profile.d/nix.sh; nix-build"
+- cp result/proposal.pdf .
+- chmod a+r proposal.pdf
+deploy:
+  skip_cleanup: true
+  provider: releases
+  file: proposal.pdf
+  on:
+    tags: true
+    all_branches: true
+    repo: roberth/uu-cs-orc
+  user: roberth
+  password:
+    secure: uqc6e4Xd2gaN17IfPc2I15nJ3SaTE59AyWiWpCHEhJEQLV1WFw6WLWCzWXc2LBn0t9AZjeszo6G7TQ1u8yb96v618wAcfkPsM0MzKuEXSoddkzSG3B9LxbPT1hgjzihvt6ReHWnfFiHk1SBBlfJE69wlbCUoTdYinZyw5+phjZZ9/isvmEvK3HEYVTz8gXa60yxQcrLqJHGn+1aDCLlwJEROOZRQcfInsAws7gsiHS7zMlR0kQSXwirgvyNMVqOjwAVNVEYk0KOa2RcH12OtzUW5R1GZAPBsszISo/sddWJtTlONC7348lAwvuK8M00LEs4J3cyV2D9KrWvzCNIteCH4TrcNqcaADxxG7lfZD34Vig1A8I/17Li+Amrj6iv2IaoRGtjbv1H9N/ErPpQlvqdKKlxsIKx7A9qCOU17backbDXDVFRF7KZAWoNbxM5jkkjP5JfDnrcjmzNtOJZyah9cRGNqtNLhwRLcRsS1IP7X7nk5eejn3wNYIDzcWh6MDokkCMWvRPUy+R9JUgcn2n7QuMyV51fV4OCvNYEA1xzGHrSFsRS+U+mtp+bUuI/NcMre8ZfZwMT9tGIijcQavKCuZ3nNWkh9euzchiojLV3kUx34W/PNOcjJEd/eLvdii9SYJxioiQhrilAY2YRlxVMqkux3FnxgQ4Evo1A9fR8=
