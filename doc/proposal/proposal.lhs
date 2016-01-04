@@ -7,6 +7,8 @@
 %%format forall a = "\forall " a
 %%format . = ".\ "
 
+\usepackage{graphicx}
+
 \author{Robert Hensing \and Robin Kuipers \and Jelle Postma}
 \title{Orchestration Proposal Presentation}
 \begin{document}
@@ -30,14 +32,8 @@
 
 \end{frame}
 
-\begin{frame}
-  \frametitle{Taxonomy}
-  Wikipedia level research :)
-
-% TODO: academic research?
 % Wikipedia has some references that may be interesting
 % https://en.wikipedia.org/wiki/Orchestration_%28computing%29#References
-\end{frame}
 
 
 \begin{frame}
@@ -54,19 +50,27 @@
     \item Coordination
       \only<3>{
         \begin{itemize}
-% FIXME: is this correct?
-          \item Peer discovery in distributed app?
+          \item Peer discovery
+          \item Coordination
         \end{itemize}
       }
     \item Management
       \only<4>{
         \begin{itemize}
-% FIXME: does this make sense?
+          \item Start/stop
           \item Monitoring
           \item Configuration
         \end{itemize}
       }
   \end{itemize}
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Taxonomy}
+
+  \includegraphics[width=10cm]{orchestration-lifecycle-flowchart.png} \\
+  \hfill -- Open Data Center Alliance
 \end{frame}
 
 
@@ -118,11 +122,15 @@
 
 TimeKeeper
 
-A distributed data store for cloud management
+A distributed data store for service orchestration
 
-Focus on consistency, availability, scalability.
+Not unlike ZooKeeper :)
 
-Not unlike ZooKeeper
+  \begin{itemize}
+    \item Central component of orchestration
+    \item Greate concurrency
+    \item Good scope
+  \end{itemize}
 
 \end{frame}
 
