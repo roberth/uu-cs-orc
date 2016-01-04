@@ -131,21 +131,23 @@ Not unlike ZooKeeper
 \frametitle{Project}
 
 \begin{itemize}
-  \item Deviation from sequential use: for sequential use, we have @Data.Map@. Requirement: availibility, scalability.
+  \item Deviation from sequential use: for sequential use, we have roughly @Data.Map@ with change notifications. Requirement: availibility, scalability.
   \item We will implement the core logic of an in memory consistent/available data store. Stages, at least three, for example:
     \begin{itemize}
-      \item Serve a @Data.Map@ from one process
-      \item Serve a @Data.Map@ through multiple processes: master/worker
-      \item Serve a @Data.Map@ more efficiently with multiple processes: sharding (how to deal with consistency?)
+      \item Serve from one process
+      \item Serve through multiple processes: master/worker
+      \item Serve more efficiently with multiple processes: \\ implement sharding (how to deal with consistency?)
     \end{itemize}
-  \item Possibilities for experimentation:
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Experimentation}
   \begin{itemize}
     \item Measure req/s for write-intensive vs. read-intensive workloads
     \item Measure req/s for single point of synchronisation vs. sharded
     \item Measure effect of simulated intercontinental latency on throughput
   \end{itemize}
-\end{itemize}
-
 \end{frame}
 
 
