@@ -92,7 +92,12 @@
 
 % The ZooKeeper core is a very nice application of concurrent programming
 
-% TODO: slide
+  \begin{itemize}
+    \item Very simple interface
+    \item Maintenance, coordination, management, consensus\dots
+    \item Synchronisation for distributed systems
+    \item Aims to implement functionality that is hard to implement but easy to use
+  \end{itemize}
 
 \end{frame}
 
@@ -101,7 +106,12 @@
 
 % Integrates with many components. Feasible subset for project?
 
-% TODO: slide
+  \begin{itemize}
+    \item Web-based interface
+    \item Installation, management and monitoring of Hadoop clusters
+    \item Easily integratable with its RESTful APIs
+    \item Very wide range of features
+  \end{itemize}
 
 \end{frame}
 
@@ -112,19 +122,51 @@
 % and computation systems. Would be an exercise in programming the logic
 % layer without having an actual back-end (which is interesting, but not ideal)
 
-% TODO: slide
+  \begin{itemize}
+    \item Data collection
+    \item Mostly used for monitoring and analyzing systems
+    \item Builds on Storage and Computation systems
+    \item Very scalable and robust
+  \end{itemize}
 
 \end{frame}
 
+\begin{frame}
+  \frametitle{Choosing between the three}
+  
+  \begin{itemize}
+    \item Chukwa
+      \only<2>{
+      \begin{itemize}
+        \item Too heavily based on other systems
+        \item Therefore an interesting project, but not the scope that we are looking for
+      \end{itemize}}
+    \item Ambari
+      \only<3>{
+      \begin{itemize}
+        \item Too large; would have to pick subset of functionality
+        \item Choice would again be very dependant on work of other groups
+      \end{itemize}}
+    \item Zookeeper
+      \only<4>{
+      \begin{itemize}
+        \item Focusses on concurrent programming
+        \item Has a core which we can start implementing, and continue from there
+        \item Great for a small project like this
+      \end{itemize}}
+  \end{itemize}
+
+\end{frame}
 
 \begin{frame}
 \frametitle{Choice of project}
 
-TimeKeeper
-
-A distributed data store for service orchestration
-
-Not unlike ZooKeeper :)
+{\Large \textbf{TimeKeeper} }
+  \begin{itemize}
+    \item A distributed data store for service orchestration
+    \item Focus on consistency, availability, scalability
+    \item Not unlike ZooKeeper
+  \end{itemize}
 
   \begin{itemize}
     \item Central component of orchestration
