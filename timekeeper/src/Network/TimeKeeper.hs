@@ -1,4 +1,5 @@
 module Network.TimeKeeper (server) where
+import qualified Network.TimeKeeper.Sequential as S
 
 server :: IO ()
-server = putStrLn "Hello, cloud!"
+server = S.main

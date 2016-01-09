@@ -16,6 +16,7 @@ let
  			 async
 			 monad-par
 			 time
+			 free
 			 xml
 			 utf8-string
 			 HTTP
@@ -26,6 +27,12 @@ let
 			 distributed-process-registry
 			 distributed-process-p2p
 			 distributed-process-async
+			 test-framework
+			 test-framework-quickcheck2
+			 test-framework-hunit
+			 QuickCheck
+			 HUnit
+			 HTF
 			 ]);
         buildTools = [ ];
         license = stdenv.lib.licenses.mit;
