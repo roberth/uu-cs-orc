@@ -7,6 +7,7 @@ import Data.Text (pack)
 
 import Data.IORef
 
+-- | Runs the server logic as a simple command line program.
 main :: IO ()
 main = do
   st <- newIORef emptyStore
@@ -30,8 +31,8 @@ runConnection st (Free f) = run f where
     store <- readIORef st
     continue (c store)
 
-  run (Broadcast path event c) = do
-    putStrLn $ "To all interested in path " ++ show path ++ ": " ++ show event
+  run (SendTo addr event c) = do
+    putStrLn $ "To " ++ show addr ++ ": " ++ show event
     continue c
 
   run (Reply event c) = do
