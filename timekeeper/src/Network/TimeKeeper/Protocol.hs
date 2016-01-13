@@ -2,12 +2,14 @@ module Network.TimeKeeper.Protocol where
 import Data.Text
 
 -- | Definition of a path.
--- | A path consists of zero or more node names.
--- | It identifies a node, which may or may not have a value.
--- | Children of a node are defined as all nodes that have a value
--- | and whose paths satisfy
--- |
--- | childPath = parentPath ++ [childNodeName].
+--
+-- A path consists of zero or more node names.
+-- It identifies a node, which may or may not have a value.
+--
+-- Children of a node are defined as all nodes that have a value
+-- and whose paths satisfy
+--
+-- > childPath = parentPath ++ [childNodeName]
 data Path = Path [NodeName]
           deriving (Eq, Ord, Show, Read)
 type NodeName = Text
