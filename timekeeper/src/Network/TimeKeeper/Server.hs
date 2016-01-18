@@ -37,7 +37,7 @@ data ConnectionEffect addr cont = ReceiveAny (Either Action Event -> cont)
                                 | SendTo addr Event cont
                                 | GetState (Store addr -> cont)
                                 | PutState (Store addr) cont
-                                  -- TODO | AtomicModifyState
+                                | AtomicModifyState (Store addr -> Store addr) cont
                                 deriving Functor
 
 -- | A monad for the effects required by the core logic of the server.
@@ -61,6 +61,9 @@ getState = liftFree (GetState id)
 
 -- | Change the state in the 'ConnectionM' monad
 putState s = liftFree (PutState s ())
+
+-- | Atomically modify the state in the 'ConnectionM' monad
+modifyState f = liftFree (AtomicModifyState f ())
 
 -- | The connection handling logic, in the declarative 'ConnectionM' monad.
 serverConnection :: addr -> ConnectionM addr ()
@@ -99,4 +102,3 @@ broadcast path event store =
   in sequence_ $ do p <- inits pathElems
                     addr <- join $ maybeToList $ M.lookup (Path p) subs
                     return $ sendTo addr event
-
