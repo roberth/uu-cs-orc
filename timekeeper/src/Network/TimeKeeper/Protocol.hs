@@ -14,7 +14,7 @@ data Path = Path [NodeName]
           deriving (Eq, Ord, Show, Read)
 type NodeName = Text
 
--- | The set of commands emmitted by clients.
+-- | The set of commands emitted by clients.
 data Action = Put         { path :: Path, putNewValue :: Maybe Text }
             | Get         { path :: Path }
             | GetChildren { path :: Path }
