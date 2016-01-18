@@ -14,9 +14,15 @@ let
       let p = packages.overrides self super;
       in {
       timekeeper = stdenv.lib.overrideDerivation (p.timekeeper.env) (old : {
-      		     extraTools = [
-                     self.cabal2nix
-                   ];});
+                     nativeBuildInputs = old.nativeBuildInputs ++ [
+                                       self.cabal2nix
+                                       self.cabal-install
+                                       nixpkgs.inotify-tools
+                                       ];
+                     shellHook = old.shellHook + ''
+                       if test -f ~/.x-nix-shellrc; then . ~/.x-nix-shellrc; fi
+                     '';
+                   });
     };
   };
 in haskell.timekeeper

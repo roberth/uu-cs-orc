@@ -18,7 +18,7 @@ import Data.Map (Map)
 import qualified Data.Text
 import Data.Text (Text)
 import Data.Foldable(for_)
-import Data.List (inits)
+import Data.List (inits, delete)
 import Data.Maybe (maybeToList, fromMaybe)
 
 -- | The state of the server
@@ -63,7 +63,7 @@ getState = liftFree (GetState id)
 putState s = liftFree (PutState s ())
 
 -- | The connection handling logic, in the declarative 'ConnectionM' monad.
-serverConnection :: addr -> ConnectionM addr ()
+serverConnection :: Eq addr => addr -> ConnectionM addr ()
 serverConnection addr = forever $ do
   event <- receive
   case event of
@@ -88,7 +88,12 @@ serverConnection addr = forever $ do
       let orEmpty = fromMaybe mempty
           update = M.alter (\subs -> Just (addr : orEmpty subs)) path
       putState (store { storeSubscriptions = update $ storeSubscriptions store })
-      
+
+    Left (Unsubscribe path) -> do
+      store <- getState
+      let update = M.alter (\subs -> delete addr `fmap` subs) path
+      putState (store { storeSubscriptions = update $ storeSubscriptions store })
+
     _ -> error "Not implemented yet"
 
 -- | Send event to subscribed clients
