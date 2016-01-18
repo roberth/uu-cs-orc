@@ -9,6 +9,9 @@ import Data.Either
 import Control.Monad.Free
 import qualified Data.Map as M
 
+import FreeTest hiding (must)
+import qualified FreeTest as FT
+
 prop_simple_test = noError (
     serverConnection ("addr"::String) `must`
       [ \(ReceiveAny c) -> Right (c (Left$ Put (Path []) (Just "test123"))) -- put a value at root
@@ -59,7 +62,6 @@ prop_send_subpath_to_subscription = noError (
       ]
     )
 
-
 mapLeft f (Left l) = Left (f l)
 mapLeft _ (Right r) = Right r
 
@@ -70,6 +72,110 @@ must (Free f) (h:hs) = let r' = Just `mapLeft` h f
                              must r hs
 must (Free f) [] = Left Nothing
 
+
 noError (Right _) = True       -- terminated with some value
 noError (Left Nothing) = True  -- no error, not terminated
 noError _ = False              -- some error
+
+
+prop_send_subpath_to_subscription_ng = serverConnection ("addr"::String)
+  `FT.must` do
+  -- A little showcase
+  -- The initial value of the store is now non-deterministic
+  -- v remembers the supposed value
+  --
+  -- TODO better showcase for nondet?
+  v <- nondet$ \(ReceiveAny c) ->
+    [ (c$ Left$ Put (Path ["a","b"]) (Just "someVal"), "someVal")
+    , (c$ Left$ Put (Path ["a","b"]) (Just "someVal2"), "someVal2")
+    ]
+  expect_$ \(GetState c) -> c$ Store {
+     storeData = M.fromList [],
+     storeSubscriptions = M.fromList [(Path ["a"],["someGuy"])]}
+  expect_$ \(PutState s c) -> if s == Store {
+    storeData = M.fromList [(Path ["a","b"], v)],
+    storeSubscriptions = M.fromList [(Path ["a"],["someGuy"])]}
+                             then c
+                             else error "Unexpected store state modification"
+  expect_$ \(SendTo "someGuy" ev c) -> if ev == Updated {
+    eventPath = Path ["a","b"],
+    oldValue = Nothing,
+    newValue = Just v}
+                                      then c
+                                      else error (show ev)
+  expect_$ \(ReceiveAny c) -> c$ Left$ Subscribe (Path ["a"])
+  continue
+
+prop_unsubscribe_not_subscribed_unmodified =
+  serverConnection ("addr"::String) `FT.must` do
+  expect_$ \(ReceiveAny c) -> c$ Left$ Unsubscribe (Path ["a"])
+  let state = Store {
+     storeData = M.fromList [],
+     storeSubscriptions = M.fromList [(Path ["a"],["someGuy"])]}
+  expect_$ \(GetState c) -> c state
+  expect_$ \(PutState s c) -> if s == state then c else error $ show state
+  expect_$ \(ReceiveAny c) -> c$ Left$ Unsubscribe (Path ["a"])
+  continue
+
+prop_unsubscribe_only_once =
+  serverConnection ("addr"::String) `FT.must` do
+  expect_$ \(ReceiveAny c) -> c$ Left$ Unsubscribe (Path ["a"])
+  let state = Store {
+     storeData = M.fromList [],
+     storeSubscriptions = M.fromList [(Path ["a"],["addr", "addr", "someGuy"])]}
+  let state' = Store {
+     storeData = M.fromList [],
+     storeSubscriptions = M.fromList [(Path ["a"],["addr", "someGuy"])]}
+  expect_$ \(GetState c) -> c state
+  expect_$ \(PutState s c) -> if s == state' then c else error $ show s
+  expect_$ \(ReceiveAny c) -> c$ Left$ Unsubscribe (Path ["a"])
+  continue
+
+prop_unsubscribe_only_path =
+  serverConnection ("addr"::String) `FT.must` do
+  expect_$ \(ReceiveAny c) -> c$ Left$ Unsubscribe (Path ["it"])
+  let state = Store {
+     storeData = M.fromList [],
+     storeSubscriptions = M.fromList [(Path ["it"],["addr", "someGuy"]), (Path ["b"],["addr", "someGuy"])]}
+  let state' = Store {
+     storeData = M.fromList [],
+     storeSubscriptions = M.fromList [(Path ["it"],["someGuy"]), (Path ["b"],["addr", "someGuy"])]}
+  expect_$ \(GetState c) -> c state
+  expect_$ \(PutState s c) -> if s == state' then c else error $ show s
+  expect_$ \(ReceiveAny c) -> c$ Left$ Unsubscribe (Path ["a"])
+  continue
+
+prop_get_children_empty =
+  serverConnection ("addr"::String) `FT.must` do
+    expect_$ \(ReceiveAny c) -> c$ Left$ GetChildren (Path ["the", "path"])
+    expect_$ \(GetState c) -> c emptyStore
+    expect_$ \(Reply m c) -> if m == ChildrenAre (Path ["the", "path"]) []
+                             then c else error (show m)
+    expect_$ \(ReceiveAny c) -> c$ Left$ GetChildren (Path ["the", "path"])
+    continue
+
+(.>) = \a b -> (a, b)
+
+prop_get_children_children_with_values =
+  serverConnection ("addr"::String) `FT.must` do
+    expect_$ \(ReceiveAny c) -> c$ Left$ GetChildren (Path ["the", "path"])
+    expect_$ \(GetState c) -> c$ emptyStore { storeData = M.fromList
+                                                          [ Path ["the", "path", "b"] .> "bla"
+                                                          , Path ["the", "path", "a"] .> "asdf"
+                                                          ] }
+    expect_$ \(Reply m c) -> if m == ChildrenAre (Path ["the", "path"]) ["a", "b"]
+                             then c else error (show m)
+    expect_$ \(ReceiveAny c) -> c$ Left$ GetChildren (Path ["the", "path"])
+    continue
+
+prop_get_children_child_without_value =
+  serverConnection ("addr"::String) `FT.must` do
+    expect_$ \(ReceiveAny c) -> c$ Left$ GetChildren (Path ["the", "path"])
+    expect_$ \(GetState c) -> c$ emptyStore { storeData = M.fromList
+                                                          [ Path ["the", "path", "b", "ignoreMe"] .> "bla"
+                                                          , Path ["the", "path", "a"] .> "asdf"
+                                                          ] }
+    expect_$ \(Reply m c) -> if m == ChildrenAre (Path ["the", "path"]) ["a", "b"]
+                             then c else error (show m)
+    expect_$ \(ReceiveAny c) -> c$ Left$ GetChildren (Path ["the", "path"])
+    continue

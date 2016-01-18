@@ -1,5 +1,6 @@
-{ mkDerivation, base, containers, free, HTF, HUnit, QuickCheck
-, stdenv, test-framework-hunit, test-framework-quickcheck2, text
+{ mkDerivation, base, containers, free, HTF, HUnit, network
+, QuickCheck, stdenv, stm, test-framework-hunit
+, test-framework-quickcheck2, text
 }:
 mkDerivation {
   pname = "timekeeper";
@@ -7,7 +8,7 @@ mkDerivation {
   src = ./.;
   isLibrary = true;
   isExecutable = true;
-  libraryHaskellDepends = [ base containers free text ];
+  libraryHaskellDepends = [ base containers free network stm text ];
   executableHaskellDepends = [ base ];
   testHaskellDepends = [
     base containers free HTF HUnit QuickCheck test-framework-hunit

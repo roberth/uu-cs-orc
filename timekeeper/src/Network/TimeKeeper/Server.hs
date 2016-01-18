@@ -18,7 +18,7 @@ import Data.Map (Map)
 import qualified Data.Text
 import Data.Text (Text)
 import Data.Foldable(for_)
-import Data.List (inits)
+import Data.List (inits, delete, isPrefixOf, group)
 import Data.Maybe (maybeToList, fromMaybe)
 
 -- | The state of the server
@@ -66,7 +66,7 @@ putState s = liftFree (PutState s ())
 modifyState f = liftFree (AtomicModifyState f ())
 
 -- | The connection handling logic, in the declarative 'ConnectionM' monad.
-serverConnection :: addr -> ConnectionM addr ()
+serverConnection :: Eq addr => addr -> ConnectionM addr ()
 serverConnection addr = forever $ do
   event <- receive
   case event of
@@ -86,12 +86,21 @@ serverConnection addr = forever $ do
       let maybeVal = M.lookup path (storeData store)
       reply (ValueIs path maybeVal)
 
+    Left (GetChildren path) -> do
+      children <- getChildren path
+      reply (ChildrenAre path children)
+
     Left (Subscribe path) -> do
       store <- getState
       let orEmpty = fromMaybe mempty
           update = M.alter (\subs -> Just (addr : orEmpty subs)) path
       putState (store { storeSubscriptions = update $ storeSubscriptions store })
-      
+
+    Left (Unsubscribe path) -> do
+      store <- getState
+      let update = M.alter (\subs -> delete addr `fmap` subs) path
+      putState (store { storeSubscriptions = update $ storeSubscriptions store })
+
     _ -> error "Not implemented yet"
 
 -- | Send event to subscribed clients
@@ -102,3 +111,29 @@ broadcast path event store =
   in sequence_ $ do p <- inits pathElems
                     addr <- join $ maybeToList $ M.lookup (Path p) subs
                     return $ sendTo addr event
+
+getStoreData :: ConnectionM addr (Map Path Text)
+getStoreData = storeData `fmap` getState
+
+getDescendants :: Path -> ConnectionM addr [(Path, Text)]
+getDescendants (Path path) = flip fmap getStoreData $ \storeData' ->
+  let
+       (pre, post) = M.split (Path path) storeData'
+       postList = M.toList post
+       isDescendant (Path p, _) = path `isPrefixOf` p
+       descendants = takeWhile isDescendant postList
+  in descendants
+
+getChildren :: Path -> ConnectionM addr [NodeName]
+getChildren (Path path) = flip fmap (getDescendants (Path path)) $ \desc ->
+  let childStream = do -- a non-unique but sorted list of children
+        let depth = length path
+        (Path p, _) <- desc
+        let subpath = drop depth p
+        safeHead subpath
+      sorted2unique = map head . group -- nub for sorted list
+  in sorted2unique childStream
+
+safeHead :: [a] -> [a]
+safeHead (h:_) = [h]
+safeHead x = x
