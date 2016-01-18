@@ -6,10 +6,7 @@ mkDerivation {
   pname = "timekeeper";
   version = "0.1.0.0";
   src = ./.;
-  isLibrary = true;
-  isExecutable = true;
   libraryHaskellDepends = [ base containers free network stm text ];
-  executableHaskellDepends = [ base ];
   testHaskellDepends = [
     base containers free HTF HUnit QuickCheck test-framework-hunit
     test-framework-quickcheck2 text

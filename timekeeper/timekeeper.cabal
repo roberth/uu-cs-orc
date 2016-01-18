@@ -36,8 +36,3 @@ test-suite test-suite
   build-depends:
     timekeeper, base, text, free, containers,
     HTF, test-framework-quickcheck2, test-framework-hunit, QuickCheck, HUnit
-
-executable timekeeperd
-  main-is:             src/Main.hs
-  build-depends:
-    timekeeper, base
