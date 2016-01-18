@@ -14,3 +14,5 @@ $mkdir -p $out/bin $out/haddock
 $ln -s ${nomadbase_toy}/bin/nomadbase-toy $out/bin
 $ln -s ${nomadbase_server}/bin/nomadbase-server $out/bin
 $ln -s ${timekeeper}/share/doc/*/* $out/haddock
+$ln -s ${netcat}/bin/nc $out/bin/nc
+$cp $src/demo-script $out/

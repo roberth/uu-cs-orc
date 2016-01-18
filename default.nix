@@ -7,7 +7,8 @@ in nixpkgs.stdenv.mkDerivation {
     buildInputs = [ nixpkgs.stdenv ];
     nomadbase_toy = packages.nomadbase-toy;
     nomadbase_server = packages.nomadbase-server;
+    src = ./doc;
     #proposal-presentation = import ./doc/proposal { inherit env; };
     inherit (packages) timekeeper;
-    inherit (nixpkgs) coreutils;
+    inherit (nixpkgs) coreutils netcat;
 }
