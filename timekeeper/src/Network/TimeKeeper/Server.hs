@@ -7,7 +7,8 @@ module Network.TimeKeeper.Server (
   -- * Effects
   Store(..), emptyStore,
   ConnectionM,
-  ConnectionEffect(..)
+  ConnectionEffect(..),
+  updateStore
   ) where
 
 import Network.TimeKeeper.Protocol
@@ -72,10 +73,7 @@ serverConnection addr = forever $ do
   case event of
     Left (Put path newValue) -> do
       store <- getState
-      let update = case newValue of
-                     Nothing -> M.delete path
-                     Just val -> M.insert path val
-          newStore = store { storeData = update (storeData store) }
+      let newStore = updateStore store path newValue
       putState newStore
 
       let oldValue = M.lookup path (storeData store)
@@ -102,6 +100,11 @@ serverConnection addr = forever $ do
       putState (store { storeSubscriptions = update $ storeSubscriptions store })
 
     _ -> error "Not implemented yet"
+    
+updateStore :: Store a -> Path -> Maybe Text -> Store a
+updateStore store path newValue = store { storeData = update newValue (storeData store) }
+    where update Nothing = M.delete path
+          update (Just val) = M.insert path val
 
 -- | Send event to subscribed clients
 broadcast :: Path -> Event -> Store addr -> ConnectionM addr ()

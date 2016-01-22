@@ -22,9 +22,10 @@ library
     Network.TimeKeeper.Sequential
     Network.TimeKeeper.Protocol
     Network.TimeKeeper.Concurrent
+    Network.TimeKeeper.Distributed
   other-modules:
-  extensions:          Rank2Types, DeriveFunctor, OverloadedStrings, ScopedTypeVariables, ImpredicativeTypes, TupleSections, GeneralizedNewtypeDeriving
-  build-depends:       base, text, free, containers, network, stm
+  extensions:          Rank2Types, DeriveFunctor, OverloadedStrings, ScopedTypeVariables, ImpredicativeTypes, TupleSections, GeneralizedNewtypeDeriving, DeriveGeneric
+  build-depends:       base, text, free, containers, network, stm, binary, template-haskell, distributed-static, distributed-process, distributed-process-simplelocalnet
   hs-source-dirs:      src
   default-language:    Haskell2010
 
