@@ -10,10 +10,10 @@ let
   stdenv = nixpkgs.stdenv;
   packages = import ../packages.nix { inherit env; };
   haskell = nixpkgs.haskellngPackages.override { 
-    overrides = self: super: 
+    overrides = self: super:
       let p = packages.overrides self super;
       in {
-      timekeeper = stdenv.lib.overrideDerivation (p.timekeeper.env) (old : {
+      nomadbase-server = stdenv.lib.overrideDerivation (p.nomadbase-server.env) (old : {
                      nativeBuildInputs = old.nativeBuildInputs ++ [
                                        self.cabal2nix
                                        self.cabal-install
@@ -25,4 +25,4 @@ let
                    });
     };
   };
-in haskell.timekeeper
+in haskell.nomadbase-server

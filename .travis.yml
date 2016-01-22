@@ -3,8 +3,6 @@ sudo: required
 install: bash <(curl https://nixos.org/nix/install)
 script:
 - bash -c ". /home/travis/.nix-profile/etc/profile.d/nix.sh; nix-build"
-- cp result/proposal.pdf .
-- chmod a+r proposal.pdf
 deploy:
   skip_cleanup: true
   provider: releases

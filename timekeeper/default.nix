@@ -6,5 +6,5 @@
 let
   nixpkgs = env.nixpkgs;
   lib = nixpkgs.haskell-ng.lib;
-  haskell = import ./packages.nix { inherit env; };
+  haskell = import ../packages.nix { inherit env; };
 in haskell.timekeeper
