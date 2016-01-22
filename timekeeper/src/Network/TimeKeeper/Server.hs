@@ -7,8 +7,7 @@ module Network.TimeKeeper.Server (
   -- * Effects
   Store(..), emptyStore,
   ConnectionM,
-  ConnectionEffect(..),
-  updateStore
+  ConnectionEffect(..)
   ) where
 
 import Network.TimeKeeper.Protocol
@@ -19,7 +18,7 @@ import Data.Map (Map)
 import qualified Data.Text
 import Data.Text (Text)
 import Data.Foldable(for_)
-import Data.List (inits, delete, isPrefixOf, group)
+import Data.List (inits, delete)
 import Data.Maybe (maybeToList, fromMaybe)
 
 -- | The state of the server
@@ -38,7 +37,7 @@ data ConnectionEffect addr cont = ReceiveAny (Either Action Event -> cont)
                                 | SendTo addr Event cont
                                 | GetState (Store addr -> cont)
                                 | PutState (Store addr) cont
-                                | AtomicModifyState (Store addr -> Store addr) cont
+                                  -- TODO | AtomicModifyState
                                 deriving Functor
 
 -- | A monad for the effects required by the core logic of the server.
@@ -63,9 +62,6 @@ getState = liftFree (GetState id)
 -- | Change the state in the 'ConnectionM' monad
 putState s = liftFree (PutState s ())
 
--- | Atomically modify the state in the 'ConnectionM' monad
-modifyState f = liftFree (AtomicModifyState f ())
-
 -- | The connection handling logic, in the declarative 'ConnectionM' monad.
 serverConnection :: Eq addr => addr -> ConnectionM addr ()
 serverConnection addr = forever $ do
@@ -73,7 +69,10 @@ serverConnection addr = forever $ do
   case event of
     Left (Put path newValue) -> do
       store <- getState
-      let newStore = updateStore store path newValue
+      let update = case newValue of
+                     Nothing -> M.delete path
+                     Just val -> M.insert path val
+          newStore = store { storeData = update (storeData store) }
       putState newStore
 
       let oldValue = M.lookup path (storeData store)
@@ -83,10 +82,6 @@ serverConnection addr = forever $ do
       store <- getState
       let maybeVal = M.lookup path (storeData store)
       reply (ValueIs path maybeVal)
-
-    Left (GetChildren path) -> do
-      children <- getChildren path
-      reply (ChildrenAre path children)
 
     Left (Subscribe path) -> do
       store <- getState
@@ -100,11 +95,6 @@ serverConnection addr = forever $ do
       putState (store { storeSubscriptions = update $ storeSubscriptions store })
 
     _ -> error "Not implemented yet"
-    
-updateStore :: Store a -> Path -> Maybe Text -> Store a
-updateStore store path newValue = store { storeData = update newValue (storeData store) }
-    where update Nothing = M.delete path
-          update (Just val) = M.insert path val
 
 -- | Send event to subscribed clients
 broadcast :: Path -> Event -> Store addr -> ConnectionM addr ()
@@ -115,28 +105,3 @@ broadcast path event store =
                     addr <- join $ maybeToList $ M.lookup (Path p) subs
                     return $ sendTo addr event
 
-getStoreData :: ConnectionM addr (Map Path Text)
-getStoreData = storeData `fmap` getState
-
-getDescendants :: Path -> ConnectionM addr [(Path, Text)]
-getDescendants (Path path) = flip fmap getStoreData $ \storeData' ->
-  let
-       (pre, post) = M.split (Path path) storeData'
-       postList = M.toList post
-       isDescendant (Path p, _) = path `isPrefixOf` p
-       descendants = takeWhile isDescendant postList
-  in descendants
-
-getChildren :: Path -> ConnectionM addr [NodeName]
-getChildren (Path path) = flip fmap (getDescendants (Path path)) $ \desc ->
-  let childStream = do -- a non-unique but sorted list of children
-        let depth = length path
-        (Path p, _) <- desc
-        let subpath = drop depth p
-        safeHead subpath
-      sorted2unique = map head . group -- nub for sorted list
-  in sorted2unique childStream
-
-safeHead :: [a] -> [a]
-safeHead (h:_) = [h]
-safeHead x = x

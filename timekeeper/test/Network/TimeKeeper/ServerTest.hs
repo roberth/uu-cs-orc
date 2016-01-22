@@ -144,38 +144,3 @@ prop_unsubscribe_only_path =
   expect_$ \(PutState s c) -> if s == state' then c else error $ show s
   expect_$ \(ReceiveAny c) -> c$ Left$ Unsubscribe (Path ["a"])
   continue
-
-prop_get_children_empty =
-  serverConnection ("addr"::String) `FT.must` do
-    expect_$ \(ReceiveAny c) -> c$ Left$ GetChildren (Path ["the", "path"])
-    expect_$ \(GetState c) -> c emptyStore
-    expect_$ \(Reply m c) -> if m == ChildrenAre (Path ["the", "path"]) []
-                             then c else error (show m)
-    expect_$ \(ReceiveAny c) -> c$ Left$ GetChildren (Path ["the", "path"])
-    continue
-
-(.>) = \a b -> (a, b)
-
-prop_get_children_children_with_values =
-  serverConnection ("addr"::String) `FT.must` do
-    expect_$ \(ReceiveAny c) -> c$ Left$ GetChildren (Path ["the", "path"])
-    expect_$ \(GetState c) -> c$ emptyStore { storeData = M.fromList
-                                                          [ Path ["the", "path", "b"] .> "bla"
-                                                          , Path ["the", "path", "a"] .> "asdf"
-                                                          ] }
-    expect_$ \(Reply m c) -> if m == ChildrenAre (Path ["the", "path"]) ["a", "b"]
-                             then c else error (show m)
-    expect_$ \(ReceiveAny c) -> c$ Left$ GetChildren (Path ["the", "path"])
-    continue
-
-prop_get_children_child_without_value =
-  serverConnection ("addr"::String) `FT.must` do
-    expect_$ \(ReceiveAny c) -> c$ Left$ GetChildren (Path ["the", "path"])
-    expect_$ \(GetState c) -> c$ emptyStore { storeData = M.fromList
-                                                          [ Path ["the", "path", "b", "ignoreMe"] .> "bla"
-                                                          , Path ["the", "path", "a"] .> "asdf"
-                                                          ] }
-    expect_$ \(Reply m c) -> if m == ChildrenAre (Path ["the", "path"]) ["a", "b"]
-                             then c else error (show m)
-    expect_$ \(ReceiveAny c) -> c$ Left$ GetChildren (Path ["the", "path"])
-    continue
