@@ -45,13 +45,9 @@ must f (FreeTest t) = mst f t where
      return$ mst unit test
  mst (Free f) _ = error "Unexpected effect"
 
--- | (Internal) Lifts an effect into the 'Free' monad
-liftFree :: Functor f => f a -> Free f a
-liftFree action = Free (fmap Pure action)
-
 -- | (Internal) Lifts an effect into the 'FreeTest' monad
 lift :: FreeTestDsl f a -> FreeTest f a
-lift action = FreeTest$ liftFree action
+lift action = FreeTest$ liftF action
 
 -- | Ignore any further effects in the unit under test.
 --

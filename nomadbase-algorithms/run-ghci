@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# A wrapper for ghci with the right dependencies and settings
+
+if ! test ./run-ghci = "$0"
+then echo "Invoke as ./run-ghci";
+     exit 1
+fi
+
+nix-shell --show-trace --pure --run 'ghci -XRank2Types -XDeriveFunctor -XOverloadedStrings -XScopedTypeVariables -XImpredicativeTypes -isrc:test'

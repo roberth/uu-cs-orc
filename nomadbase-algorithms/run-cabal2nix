@@ -1,0 +1,17 @@
+#!/bin/sh
+#
+# This script must be run when the .cabal file changes.
+#
+
+if ! test ./run-cabal2nix = "$0"
+then echo "Invoke as ./run-cabal2nix";
+     exit 1
+fi
+
+name=nomadbase-algorithms
+
+if nix-shell --pure --run 'cabal2nix .' >$name.nix.$$ \
+   && mv $name.nix.$$ $name.nix
+then echo "cabal2nix done."
+else echo "cabal2nix failure."; exit 1
+fi

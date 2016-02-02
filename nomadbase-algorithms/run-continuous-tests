@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+# Runs tests whenever a files change
+
+if ! test ./run-continuous-tests = "$0"
+then echo "Invoke as ./run-continuous-tests";
+     exit 1
+fi
+
+nix-shell -p "haskellPackages.ghcWithPackages (pkgs: with pkgs; [stm])" \
+          -p 'inotify-tools' \
+          --run "runhaskell autotest.hs" \
+          "../nixpkgs"
+

@@ -1,12 +1,17 @@
-{ mkDerivation, base, containers, free, HTF, HUnit, network
-, QuickCheck, stdenv, stm, test-framework-hunit
-, test-framework-quickcheck2, text
+{ mkDerivation, base, binary, containers, distributed-process
+, distributed-process-simplelocalnet, distributed-static, free, HTF
+, HUnit, network, QuickCheck, stdenv, stm, template-haskell
+, test-framework-hunit, test-framework-quickcheck2, text
 }:
 mkDerivation {
   pname = "timekeeper";
   version = "0.1.0.0";
   src = ./.;
-  libraryHaskellDepends = [ base containers free network stm text ];
+  libraryHaskellDepends = [
+    base binary containers distributed-process
+    distributed-process-simplelocalnet distributed-static free network
+    stm template-haskell text
+  ];
   testHaskellDepends = [
     base containers free HTF HUnit QuickCheck test-framework-hunit
     test-framework-quickcheck2 text

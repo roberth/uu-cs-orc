@@ -45,7 +45,7 @@ type ConnectionM addr a = Free (ConnectionEffect addr) a
 
 -- | Lifts an effect into the 'Free' monad
 liftFree :: Functor f => f a -> Free f a
-liftFree action = Free (fmap Pure action)
+liftFree = liftF
 
 -- | Receive an event in the 'ConnectionM' monad
 receive = liftFree (ReceiveAny id)

@@ -1,0 +1,10 @@
+#!/bin/sh
+#
+# Runs the tests in nix-shell
+
+if ! test ./run-tests = "$0"
+then echo "Invoke as ./run-tests";
+     exit 1
+fi
+
+nix-shell --show-trace --pure --run 'cabal test'
