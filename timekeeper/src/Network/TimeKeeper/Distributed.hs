@@ -108,7 +108,7 @@ master peers = do
     return ()
        
 main :: IO ()
-main = distribMain master Main.__remoteTable
+main = distribMain master __remoteTable
 
 distribMain :: ([NodeId] -> Process ()) -> (RemoteTable -> RemoteTable) -> IO ()
 distribMain master frtable = do
