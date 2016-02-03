@@ -1,5 +1,5 @@
 module Main where
-import qualified Network.TimeKeeper.Concurrent
+import qualified Network.TimeKeeper.Distributed
 
 main :: IO ()
-main = Network.TimeKeeper.Concurrent.main
+main = Network.TimeKeeper.Distributed.main
