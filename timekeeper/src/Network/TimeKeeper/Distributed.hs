@@ -5,7 +5,7 @@ import Network.TimeKeeper.Server
 import Network.TimeKeeper.Protocol
 import Control.Monad.Free
 
-import Data.Text hiding (filter, map)
+import Data.Text hiding (filter, map, zip, replicate, length)
 
 import Data.IORef
 
@@ -36,7 +36,7 @@ data LeaderData = LeaderData
     }
     
 masterPort :: Int
-masterPort = 44444
+masterPort = 44414
 
 leader :: [ProcessId] -> Process ()
 leader procs = do
@@ -52,15 +52,16 @@ leader procs = do
 leaderListener :: LeaderData -> IO ()
 leaderListener ld = withSocketsDo $ do
     sock <- listenOn (PortNumber (fromIntegral masterPort))
-    putStrLn ("Listening on port " ++ show masterPort)
+    putStrLn ("Leader listening on port " ++ show masterPort)
     forever $ do
         (handle, host, port) <- accept sock
         putStrLn ("Accepted client connection from: " ++ show handle)        
-        forkFinally (setupClient ld handle) (\_ -> hClose handle) 
+        forkIO (setupClient ld handle)
         
 setupClient :: LeaderData -> Handle -> IO ()
 setupClient ld h = do
     NotifyLeader name <- retryRead h
+    putStrLn ("Name recieved from: " ++ unpack name)
     atomically $ do
       reqMap <- readTVar $ requests ld
       case M.lookup name reqMap of
@@ -155,9 +156,9 @@ socketListener sd@(_, pc) p pid lHostName = withSocketsDo $ do
     forever $ do
         (handle, host, port) <- accept sock
         putStrLn ("Accepted connection from: " ++ show handle)
-        let name = show pid ++ show host ++ show port
+        let name = show pid ++ show port
         atomically $ writeTChan pc $ NewClient pid $ pack name
-        hPutStrLn handle ("Connect to the leader located at " ++ show lHostName ++ " at port " ++ show masterPort ++ "and send 'NotifyLeader " ++ name ++ "'.")
+        hPutStrLn handle ("Connect to the leader located at " ++ show lHostName ++ " at port " ++ show masterPort ++ " and send 'NotifyLeader { name = \"" ++ name ++ "\" }'.")
         forkFinally (talk sd handle) (\_ -> hClose handle)       
         
 server :: (Int, ProcessId) -> Process ()
@@ -183,11 +184,15 @@ remotable ['server]
        
 master :: [NodeId] -> Process ()
 master peers = do
-    liftIO $ putStrLn "Server Started"
+    liftIO $ putStrLn "Leader Started"
+    liftIO $ putStrLn (show (length peers))
     pid <- getSelfPid
-    nid <- getSelfNode
-    let nids = filter (\n -> n /= nid) peers
-    pids <- mapM (flip spawn ($(mkClosure 'server) (masterPort, pid))) nids
+    let args = zip [(masterPort+1)..] $ replicate (length peers) pid
+        run nid (port, mpid) = do
+          liftIO $ putStrLn ("Starting node on " ++ show nid ++ " with port " ++ show port)
+          spawn nid ($(mkClosure 'server) (port, mpid))
+    pids <- zipWithM run peers args
+    --pids <- mapM (flip spawn ($(mkClosure 'server) args)) peers
     leader pids
        
 main :: IO ()
