@@ -1,0 +1,16 @@
+#!/bin/sh
+#
+# Runs timekeeperd in interpreted mode
+
+if ! test ./run-timekeeperd-interpreted = "$0"
+then echo "Invoke as ./run-timekeeperd-interpreted";
+     exit 1
+fi
+
+if which nix-shell >/dev/null
+then nix-shell \
+          -p "haskellngPackages.ghcWithPackages (pkgs: with pkgs; [stm])" \
+          -p 'inotify-tools' \
+          --run "(echo :l Main; echo main) | cabal repl"
+else (echo :l Main; echo main) | cabal repl
+fi
