@@ -7,6 +7,10 @@ then echo "Invoke as ./run-continuous-tests";
      exit 1
 fi
 
-nix-shell -p "haskellngPackages.ghcWithPackages (pkgs: with pkgs; [stm])" \
+if which nix-shell >/dev/null
+then nix-shell \
+          -p "haskellngPackages.ghcWithPackages (pkgs: with pkgs; [stm])" \
           -p 'inotify-tools' \
           --run "runhaskell autotest.hs"
+else runhaskell autotest.hs
+fi
