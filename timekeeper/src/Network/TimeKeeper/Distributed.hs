@@ -189,12 +189,9 @@ master peers = do
     let nids = filter (\n -> n /= nid) peers
     pids <- mapM (flip spawn ($(mkClosure 'server) (masterPort, pid))) nids
     leader pids
-    
-muster :: [NodeId] -> Process ()
-muster _ = liftIO $ putStrLn "Hello"
        
 main :: IO ()
-main = distribMain muster __remoteTable
+main = distribMain master __remoteTable
 
 distribMain :: ([NodeId] -> Process ()) -> (RemoteTable -> RemoteTable) -> IO ()
 distribMain master frtable = do
