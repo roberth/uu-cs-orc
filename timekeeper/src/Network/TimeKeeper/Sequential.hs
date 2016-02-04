@@ -23,7 +23,7 @@ runConnection st (Free f) = run f where
     command <- retryRead
     continue $ c $ Left command
 
-  run (PutState newSt c) = do
+  run (PutState newSt a c) = do
     writeIORef st newSt
     continue c
 
