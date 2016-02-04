@@ -5,7 +5,7 @@ import Network.NomadBase.Algorithms.Barrier
 import Network.TimeKeeper.Protocol
 import Network.TimeKeeper.Server
 import qualified Test.Framework
-import Control.Monad.Free
+import Control.Monad.Freer
 import Data.Maybe (maybeToList)
 import qualified Data.Set as S
 import Data.Either (rights, lefts)
@@ -14,34 +14,39 @@ import Control.Monad (join, void)
 import Control.Monad.State (runStateT, StateT, lift, put, get, modify, mapStateT)
 import Test.Framework
 import Data.Text(Text)
+import Control.Monad.Freer.Internal
 
 a `isPermutationOf` b = S.fromList a == S.fromList b
 
-runChan1 :: ChanM lr rl l -> ChanM rl lr r ->
-            [(ChanM lr rl l, ChanM rl lr r)]
-runChan1 l@(Pure _)  r@(Pure _)  = [(l, r)]
-runChan1 l@(Pure _)  r           = [(l, r)]
-runChan1 l           r@(Pure _)  = [(l, r)]
-runChan1 (Free (Send t cl)) (Free (Receive cr)) =
-  runChan1 cl (cr t)
-runChan1 (Free (Receive cl)) (Free (Send t cr)) =
-  runChan1 (cl t) cr
+--runChan1 :: (Member (Send lr) e1, Member (Receive lr) e2) => Eff e1 l -> Eff e2 r ->
+--            [(Eff e1 l, Eff e2 r)]
+runChan1 :: Eff '[Send lr, Receive rl] l -> Eff '[Send rl, Receive lr] r -> [(Eff '[Send lr, Receive rl] l, Eff '[Send rl, Receive lr] r)]
+runChan1 l@(Val _)  r@(Val _)  = [(l, r)]
+runChan1 l@(Val _)  r           = [(l, r)]
+runChan1 l           r@(Val _)  = [(l, r)]
+runChan1 (E ul ql) (E ur qr) | (Right (Send t)) <- decomp ul, Left ur' <- decomp ur, (Right Receive) <- decomp ur' =
+    runChan1 (qApp ql ()) (qApp qr t)
+runChan1 (E ul ql) (E ur qr) | Left ul' <- decomp ul, Right Receive <- decomp ul', (Right (Send t)) <- decomp ur =
+    runChan1 (qApp ql t) (qApp qr ())
 
 prop_True = isok where
+  prog1 :: Eff '[Send String, Receive Bool] Bool
+  prog2 :: Eff '[Send Bool, Receive String] ()
   prog1 = do
-    receive
-    transmit "Test1"
-    transmit "Test2"
-    receive
+    _ :: Bool <- receive
+    transmit ("Test1" :: String)
+    transmit ("Test2" :: String)
+    x :: Bool <- receive
+    return x
   prog2 = do
     transmit True
-    r <- receive
-    r' <- receive
+    r :: String <- receive
+    r' :: String <- receive
     transmit (r == "Test1" && r' == "Test2")
   results = runChan1 prog1 prog2
   allSatisfy = flip all
   isok = results `allSatisfy` \case
-    (Pure True, Pure ()) -> True
+    (Val True, Val ()) -> True
     _ -> False
 
 -- | Monad for algorithms that may send and receive,
@@ -49,10 +54,16 @@ prop_True = isok where
 -- The receiving effect may refuse to process a message,
 -- which should be interpreted as that the message was not
 -- sent to the instance of the computation.
-data SChanEff r t c = SSend t c
-                    | SReceive (r -> Maybe c)
-                    deriving (Functor)
-type SChanM r t = Free (SChanEff r t)
+
+data SReceive r a = SReceive (r -> Maybe a)
+
+type SChan r t l = (Member (Send t) l, Member (SReceive r) l)
+
+{-
+--data SChanEff r t c = SSend t c
+--                    | SReceive (r -> Maybe c)
+--                    deriving (Functor)
+type SChanM r t = Freer (SChanEff r t)
 
 type SChanReceive r t c = r -> Maybe (SChanM r t c)
 
@@ -411,3 +422,5 @@ testBarrier name = barrier2
 
 barrierSystem addrs = foldr addClient emptySystem $
                       testServer addrs : map testBarrier addrs
+
+ -- -}

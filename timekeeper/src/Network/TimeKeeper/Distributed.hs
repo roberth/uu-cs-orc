@@ -27,6 +27,8 @@ import System.Environment
 import Network.Socket hiding (shutdown, accept, send)
 import Language.Haskell.TH
 
+import Debug.Trace
+
 type ServerData = (TVar (Store Handle), TChan Update) -- TODO: Datatype maken
 data LeaderData = LeaderData
     { servers   :: TVar [ProcessId]
@@ -64,7 +66,9 @@ setupClient ld h = do
     atomically $ do
       reqMap <- readTVar $ requests ld
       case M.lookup name reqMap of
-          Nothing -> retry
+          Nothing ->
+            traceM "Retrying because of missing name in reqMap" >>
+            retry
           Just pid -> do
             workerMap <- readTVar $ workers ld
             case M.lookup pid workerMap of
