@@ -37,7 +37,7 @@ data ConnectionEffect addr cont = ReceiveAny (Either Action Event -> cont)
                                 | Reply Event cont
                                 | SendTo addr Event cont
                                 | GetState (Store addr -> cont)
-                                | PutState (Store addr) cont
+                                | PutState (Store addr) (Maybe Action) cont
                                 | AtomicModifyState (Store addr -> Store addr) cont
                                 deriving Functor
 
@@ -61,7 +61,7 @@ sendTo addr ev = liftFree (SendTo addr ev ())
 getState = liftFree (GetState id)
 
 -- | Change the state in the 'ConnectionM' monad
-putState s = liftFree (PutState s ())
+putState s a = liftFree (PutState s a ())
 
 -- | Atomically modify the state in the 'ConnectionM' monad
 modifyState f = liftFree (AtomicModifyState f ())
@@ -74,7 +74,7 @@ serverConnection addr = forever $ do
     Left (Put path newValue) -> do
       store <- getState
       let newStore = updateStore store path newValue
-      putState newStore
+      putState newStore $ Just $ Put path newValue
 
       let oldValue = M.lookup path (storeData store)
       broadcast path (Updated path oldValue newValue) newStore
@@ -92,12 +92,12 @@ serverConnection addr = forever $ do
       store <- getState
       let orEmpty = fromMaybe mempty
           update = M.alter (\subs -> Just (addr : orEmpty subs)) path
-      putState (store { storeSubscriptions = update $ storeSubscriptions store })
+      putState (store { storeSubscriptions = update $ storeSubscriptions store }) Nothing
 
     Left (Unsubscribe path) -> do
       store <- getState
       let update = M.alter (\subs -> delete addr `fmap` subs) path
-      putState (store { storeSubscriptions = update $ storeSubscriptions store })
+      putState (store { storeSubscriptions = update $ storeSubscriptions store }) Nothing
 
     _ -> error "Not implemented yet"
     

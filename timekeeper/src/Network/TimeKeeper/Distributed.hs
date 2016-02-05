@@ -5,7 +5,7 @@ import Network.TimeKeeper.Server
 import Network.TimeKeeper.Protocol
 import Control.Monad.Free
 
-import Data.Text hiding (filter, map)
+import Data.Text hiding (filter, map, zip, replicate, length)
 
 import Data.IORef
 
@@ -16,6 +16,7 @@ import Network.BSD
 import System.IO
 import Control.Monad
 import Data.Map as M hiding (filter, map)
+import Data.Maybe (maybeToList)
 
 import Control.Distributed.Process
 import Control.Distributed.Process.Closure
@@ -27,7 +28,11 @@ import System.Environment
 import Network.Socket hiding (shutdown, accept, send)
 import Language.Haskell.TH
 
-type ServerData = (TVar (Store Handle), TChan Update) -- TODO: Datatype maken
+data ServerData = ServerData
+    { servStore :: TVar (Store Handle)
+    , pchan     :: TChan Update
+    , serverPid :: ProcessId
+    }
 data LeaderData = LeaderData
     { servers   :: TVar [ProcessId]
     , workers   :: TVar (Map ProcessId (TVar [Handle]))
@@ -52,15 +57,17 @@ leader procs = do
 leaderListener :: LeaderData -> IO ()
 leaderListener ld = withSocketsDo $ do
     sock <- listenOn (PortNumber (fromIntegral masterPort))
-    putStrLn ("Listening on port " ++ show masterPort)
+    putStrLn ("Leader listening on port " ++ show masterPort)
     forever $ do
         (handle, host, port) <- accept sock
-        putStrLn ("Accepted client connection from: " ++ show handle)        
-        forkFinally (setupClient ld handle) (\_ -> hClose handle) 
+        putStrLn ("Accepted client connection from: " ++ show handle) 
+        hPutStrLn handle "Hello. Do you have a message for me?"       
+        forkFinally (setupClient ld handle) (\_ -> hClose handle)
         
 setupClient :: LeaderData -> Handle -> IO ()
 setupClient ld h = do
     NotifyLeader name <- retryRead h
+    hPutStrLn h "Valid name recieved"
     atomically $ do
       reqMap <- readTVar $ requests ld
       case M.lookup name reqMap of
@@ -75,6 +82,7 @@ setupClient ld h = do
               Just handlesT -> do
                 handles <- readTVar handlesT
                 writeTVar handlesT $ h:handles
+    setupClient ld h
     
 handleServer :: LeaderData -> ProcessId -> Process ()
 handleServer ld pid = do
@@ -102,28 +110,32 @@ talk sd h = do
     runConnection sd h $ serverConnection h
     
 runConnection :: ServerData -> Handle -> ConnectionM Handle a -> IO a
-runConnection (st, pc) h (Pure a) = return a
-runConnection (st, pc) h (Free f) = run f where
-  continue c = runConnection (st, pc) h c
+runConnection sd h (Pure a) = return a
+runConnection sd h (Free f) = run f where
+  continue c = runConnection sd h c
 
   run (ReceiveAny c) = do
     hPutStrLn h "Enter a command"
     command <- retryRead h
     continue $ c $ Left command
 
-  run (PutState newSt c) = do
-    atomically $ writeTVar st newSt    
-    continue c
+  run (PutState newSt a c) = do
+    atomically $ writeTVar (servStore sd) newSt
+    case a of
+      Just (Put path val) -> do 
+        atomically $ writeTChan (pchan sd) $ PutUpdate (serverPid sd) path val
+        continue c
+      otherwise           -> continue c
 
   run (GetState c) = do
-    store <- atomically $ readTVar st
+    store <- atomically $ readTVar (servStore sd)
     continue (c store)
     
   run (AtomicModifyState f c) = do 
         atomically $ do
-            store <- readTVar st
+            store <- readTVar (servStore sd)
             let store' = f store
-            writeTVar st store'
+            writeTVar (servStore sd) store'
         continue c
 
   run (SendTo addr event c) = do
@@ -132,7 +144,7 @@ runConnection (st, pc) h (Free f) = run f where
 
   run (Reply event c) = do
     hPutStrLn h $ "Message to you: " ++ show event
-    continue c
+    continue c  
 
 retryRead :: Read a => Handle -> IO a
 retryRead h =
@@ -140,24 +152,30 @@ retryRead h =
      let parse = map fst . filter (\(_, remaining) -> remaining == "") . reads
      case parse command of
        [x]  ->  return x
-       _    ->  hPutStrLn h "Parse error" >> retryRead h
+       _    ->  hPutStrLn h ("Parse error") >> retryRead h
 
 handleRemoteMessage :: TVar (Store Handle) -> Action -> Process ()
-handleRemoteMessage st (Put path newValue) = liftIO $ atomically $ do
-    store <- readTVar st
-    let newStore = updateStore store path newValue
-    writeTVar st newStore       
+handleRemoteMessage st (Put path newValue) = liftIO $ do
+    (store, oldValue) <- atomically $ do
+      store <- readTVar st
+      let newStore = updateStore store path newValue
+      writeTVar st newStore
+      let oldValue = M.lookup path (storeData store)
+      return (newStore, oldValue)
+    let subs = join $ maybeToList $ M.lookup path (storeSubscriptions store)
+        message = Updated path oldValue newValue
+    mapM_ (\h -> hPutStrLn h $ "To " ++ show h ++ ": " ++ show message) subs
        
 socketListener :: ServerData -> Int -> ProcessId -> HostName -> IO ()
-socketListener sd@(_, pc) p pid lHostName = withSocketsDo $ do
+socketListener sd p pid lHostName = withSocketsDo $ do
     sock <- listenOn (PortNumber (fromIntegral p))
     putStrLn ("Listening on port " ++ show p)
     forever $ do
         (handle, host, port) <- accept sock
         putStrLn ("Accepted connection from: " ++ show handle)
-        let name = show pid ++ show host ++ show port
-        atomically $ writeTChan pc $ NewClient pid $ pack name
-        hPutStrLn handle ("Connect to the leader located at " ++ show lHostName ++ " at port " ++ show masterPort ++ "and send 'NotifyLeader " ++ name ++ "'.")
+        let name = show pid ++ show port
+        atomically $ writeTChan (pchan sd) $ NewClient pid $ pack name
+        hPutStrLn handle ("Connect to the leader located at " ++ show lHostName ++ " at port " ++ show masterPort ++ " and send 'NotifyLeader { name = \"" ++ name ++ "\" }'.")
         forkFinally (talk sd handle) (\_ -> hClose handle)       
         
 server :: (Int, ProcessId) -> Process ()
@@ -166,13 +184,14 @@ server (port, lpid) = do
     pc <- liftIO $ newTChanIO
     pid <- getSelfPid
     lHostName <- expect
-    liftIO $ forkIO $ socketListener (st, pc) port pid lHostName
+    let sd = ServerData { servStore = st, pchan = pc, serverPid = pid }
+    liftIO $ forkIO $ socketListener sd port pid lHostName
     mySendPort <- spawnChannelLocal $ serverProxy pc
     sendPort <- expect
     sendChan mySendPort sendPort
     forever $ do m <- expect; handleRemoteMessage st m
     
-serverProxy :: Serializable a => TChan a -> ReceivePort (SendPort a) -> Process ()
+serverProxy :: Serializable a => TChan a-> ReceivePort (SendPort a) -> Process ()
 serverProxy pc recvPort = do
     sendPort <- receiveChan recvPort
     forever $ do 
@@ -183,11 +202,14 @@ remotable ['server]
        
 master :: [NodeId] -> Process ()
 master peers = do
-    liftIO $ putStrLn "Server Started"
+    liftIO $ putStrLn "Leader Started"
+    liftIO $ putStrLn (show (length peers))
     pid <- getSelfPid
-    nid <- getSelfNode
-    let nids = filter (\n -> n /= nid) peers
-    pids <- mapM (flip spawn ($(mkClosure 'server) (masterPort, pid))) nids
+    let args = zip [(masterPort+1)..] $ replicate (length peers) pid
+        run nid (port, mpid) = do
+          liftIO $ putStrLn ("Starting node on " ++ show nid ++ " with port " ++ show port)
+          spawn nid ($(mkClosure 'server) (port, mpid))
+    pids <- zipWithM run peers args
     leader pids
        
 main :: IO ()

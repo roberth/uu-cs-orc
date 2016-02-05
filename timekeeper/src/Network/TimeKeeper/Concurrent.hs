@@ -43,7 +43,7 @@ runConnection st h (Free f) = run f where
     command <- retryRead h
     continue $ c $ Left command
 
-  run (PutState newSt c) = do
+  run (PutState newSt a c) = do
     atomically $ writeTVar st newSt
     continue c
 
