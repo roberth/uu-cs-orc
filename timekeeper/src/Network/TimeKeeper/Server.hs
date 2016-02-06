@@ -101,6 +101,7 @@ serverConnection addr = forever $ do
 
     _ -> error "Not implemented yet"
     
+-- | Put a new value at a given place in the store
 updateStore :: Store a -> Path -> Maybe Text -> Store a
 updateStore store path newValue = store { storeData = update newValue (storeData store) }
     where update Nothing = M.delete path
@@ -115,6 +116,7 @@ broadcast path event store =
                     addr <- join $ maybeToList $ M.lookup (Path p) subs
                     return $ sendTo addr event
 
+-- | Get the storeData field from the Store                    
 getStoreData :: ConnectionM addr (Map Path Text)
 getStoreData = storeData `fmap` getState
 
@@ -126,7 +128,7 @@ getDescendants (Path path) = flip fmap getStoreData $ \storeData' ->
        isDescendant (Path p, _) = path `isPrefixOf` p
        descendants = takeWhile isDescendant postList
   in descendants
-
+  
 getChildren :: Path -> ConnectionM addr [NodeName]
 getChildren (Path path) = flip fmap (getDescendants (Path path)) $ \desc ->
   let childStream = do -- a non-unique but sorted list of children

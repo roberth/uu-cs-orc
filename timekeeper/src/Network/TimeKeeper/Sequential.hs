@@ -13,6 +13,7 @@ main = do
   st <- newIORef emptyStore
   runConnection st $ serverConnection ()
 
+-- | Handles the IO part of the Server
 runConnection :: IORef (Store ()) -> ConnectionM () a -> IO a
 runConnection st (Pure a) = return a
 runConnection st (Free f) = run f where
@@ -39,6 +40,7 @@ runConnection st (Free f) = run f where
     putStrLn $ "Message to you: " ++ show event
     continue c
 
+-- | Reads and parses a command    
 retryRead :: Read a => IO a
 retryRead =
   do command <- getLine

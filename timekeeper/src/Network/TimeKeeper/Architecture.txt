@@ -1,0 +1,25 @@
+The architecture used in the Distributed version of the program is explained here.
+
+A master process and some slave processes are started. The master spawns some Servers on the slaves (currently one per 
+slave) and then starts the Leader process on its own node.
+
+A Client can be any application, and it can connect to one of the Servers. It will then be asked to also connect to the 
+Leader, and it is given its address and an identification message (which the Leader can use to confirm that the client
+is connected to a specific server). This connection is made to let the Leader contact the Clients in case their Server
+goes down. It is done this way to ensure the Client does not have to listen to incoming connections and that the Leader
+can act when it detects that a Server has gone down, instead of the Clients having to detect this in some way.
+
+A Server consists of two processes on the same node. One of them is simply a proxy process, which reads data from the 
+Server send to it using a TChan, and passes it to the Leader through a SendPort (send to it by the Leader). The other
+process is the meat of the Server, and consists of one thread per connected client, a thread listening for new clients,
+and a thread listening to incoming remote messages from the Leader. The client threads handle any message send by that 
+client. 
+
+A Leader consists of one process per Server, a process that proxies outgoing messages, and a process listing to new 
+Clients that connect to the Leader. All of these are different Processes because they all have to perform actions 
+in the Process Monad, which cannot be started by a fork operation. Servers that send messages to the Leader send them
+through a SendPort which is send to them by the Leader, but if the Leader sends a message to a server it is simply done
+using the send function (and the expect function on the Server side). This is done because a Server only gets messages
+from one other Node (the Leader), while the Leader receives messages from all Servers. Therefore, the proxy that a 
+Leader uses (which simply performs anything it receives in the Process Monad) is different from the one a Server uses
+(which sends a received message through the SendPort). 
