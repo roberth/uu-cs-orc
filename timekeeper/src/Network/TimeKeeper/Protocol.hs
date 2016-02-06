@@ -1,4 +1,5 @@
 module Network.TimeKeeper.Protocol where
+import Prelude hiding ((/))
 import Data.Text
 import Data.Binary
 import Data.Typeable
@@ -16,10 +17,15 @@ import System.IO
 -- and whose paths satisfy
 --
 -- > childPath = parentPath ++ [childNodeName]
-data Path = Path [NodeName]
+newtype Path = Path [NodeName]
           deriving (Eq, Ord, Show, Read, Typeable, Generic)
 instance Binary Path
+
 type NodeName = Text
+
+(/) :: Path -> Path -> Path
+(Path x) / (Path y) = Path (x ++ y)
+slash = (/)
 
 -- | The set of commands emitted by clients.
 data Action = Put          { path :: Path, putNewValue :: Maybe Text }
@@ -34,7 +40,7 @@ instance Binary Action
 -- | The set of events emitted by servers to clients.
 data Event = Updated     { eventPath :: Path, oldValue :: Maybe Text, newValue :: Maybe Text }
            | ValueIs     { eventPath :: Path,                         newValue :: Maybe Text }
-           | ChildrenAre { eventPath :: Path, children :: [Text] }
+           | ChildrenAre { eventPath :: Path, children :: [NodeName] }
            deriving (Eq, Ord, Show, Read, Typeable, Generic)
 instance Binary Event
 

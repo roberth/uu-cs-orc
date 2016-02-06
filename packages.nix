@@ -28,9 +28,16 @@ in rec {
 		       self.ghc
                      ]
                    );
+      nomadbase-algorithms = env.setSource ./nomadbase-algorithms
+                   (lib.addBuildTools
+                     (self.callPackage nomadbase-algorithms/nomadbase-algorithms.nix {})
+                     [ self.cabal2nix
+		       self.ghc
+                     ]
+                   );
     };
   packages = nixpkgs.haskellngPackages.override { 
     inherit overrides;
     };
-  inherit (packages) nomadbase-toy nomadbase-server timekeeper;
+  inherit (packages) nomadbase-toy nomadbase-server nomadbase-algorithms timekeeper;
 }
