@@ -1,5 +1,5 @@
-{ mkDerivation, base, containers, free, freer, HTF, HUnit, mtl
-, QuickCheck, stdenv, test-framework-hunit
+{ mkDerivation, base, containers, contravariant, free, freer, HTF
+, HUnit, mtl, profunctors, QuickCheck, stdenv, test-framework-hunit
 , test-framework-quickcheck2, text, timekeeper
 }:
 mkDerivation {
@@ -7,12 +7,14 @@ mkDerivation {
   version = "0.1.0.0";
   src = ./.;
   libraryHaskellDepends = [
-    base containers free freer HTF HUnit mtl QuickCheck
-    test-framework-hunit test-framework-quickcheck2 text timekeeper
+    base containers contravariant free freer HTF HUnit mtl profunctors
+    QuickCheck test-framework-hunit test-framework-quickcheck2 text
+    timekeeper
   ];
   testHaskellDepends = [
-    base containers free freer HTF HUnit mtl QuickCheck
-    test-framework-hunit test-framework-quickcheck2 text timekeeper
+    base containers contravariant free freer HTF HUnit mtl profunctors
+    QuickCheck test-framework-hunit test-framework-quickcheck2 text
+    timekeeper
   ];
   description = "Example algorithms on NomadBase";
   license = stdenv.lib.licenses.mit;
