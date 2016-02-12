@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -F -pgmF htfpp #-}
+{-# LANGUAGE IncoherentInstances #-}
 module Network.TimeKeeper.ServerTest where
 import Test.Framework
 import Network.TimeKeeper.Server
@@ -16,7 +17,7 @@ prop_simple_test = noError (
     serverConnection ("addr"::String) `must`
       [ \(ReceiveAny c) -> Right (c (Left$ Put (Path []) (Just "test123"))) -- put a value at root
       , \(GetState c) -> Right (c (Store mempty mempty))        -- on empty store
-      , \(PutState s c) -> if storeData s == M.fromList [(Path [], "test123")] then Right c else Left "Store should contain only Root -> test123"
+      , \(PutState s _ c) -> if storeData s == M.fromList [(Path [], "test123")] then Right c else Left "Store should contain only Root -> test123"
       ]
   )
 
@@ -24,10 +25,10 @@ prop_subscription_scenario = noError (
     serverConnection ("addr"::String) `must`
       [ \(ReceiveAny c) -> Right (c (Left$ Subscribe (Path ["a"])))
       , \(GetState c) -> Right (c (emptyStore))
-      , \(PutState s c) -> if s == Store {storeData = M.fromList [], storeSubscriptions = M.fromList [(Path ["a"],["addr"])]} then Right c else error "Unexpected store state modification"
+      , \(PutState s _ c) -> if s == Store {storeData = M.fromList [], storeSubscriptions = M.fromList [(Path ["a"],["addr"])]} then Right c else error "Unexpected store state modification"
       , \(ReceiveAny c) -> Right (c (Left$ Put (Path ["a"]) (Just "someVal")))
       , \(GetState c) -> Right (c (Store {storeData = M.fromList [], storeSubscriptions = M.fromList [(Path ["a"],["addr"])]}))
-      , \(PutState s c) -> if s == Store {storeData = M.fromList [(Path ["a"], "someVal")], storeSubscriptions = M.fromList [(Path ["a"],["addr"])]} then Right c else error "Unexpected store state modification"
+      , \(PutState s _ c) -> if s == Store {storeData = M.fromList [(Path ["a"], "someVal")], storeSubscriptions = M.fromList [(Path ["a"],["addr"])]} then Right c else error "Unexpected store state modification"
       , \(SendTo "addr" ev c) -> if ev == Updated {eventPath = Path ["a"], oldValue = Nothing, newValue = Just "someVal"} then Right c else error (show ev)
       , \(ReceiveAny c) -> Right (c (Left$ Subscribe (Path ["a"])))
       ]
@@ -37,7 +38,7 @@ prop_record_subscription = noError (
     serverConnection ("addr"::String) `must`
       [ \(ReceiveAny c) -> Right (c (Left$ Subscribe (Path ["a"])))
       , \(GetState c) -> Right (c (emptyStore))
-      , \(PutState s c) -> if s == Store {storeData = M.fromList [], storeSubscriptions = M.fromList [(Path ["a"],["addr"])]} then Right c else error "Unexpected store state modification"
+      , \(PutState s _ c) -> if s == Store {storeData = M.fromList [], storeSubscriptions = M.fromList [(Path ["a"],["addr"])]} then Right c else error "Unexpected store state modification"
       , \(ReceiveAny c) -> Right (c (Left$ Put (Path ["a"]) (Just "someVal")))
       ]
   )
@@ -46,7 +47,7 @@ prop_send_to_subscription = noError (
     serverConnection ("addr"::String) `must`
       [ \(ReceiveAny c) -> Right (c (Left$ Put (Path ["a"]) (Just "someVal")))
       , \(GetState c) -> Right (c (Store {storeData = M.fromList [], storeSubscriptions = M.fromList [(Path ["a"],["someGuy"])]}))
-      , \(PutState s c) -> if s == Store {storeData = M.fromList [(Path ["a"], "someVal")], storeSubscriptions = M.fromList [(Path ["a"],["someGuy"])]} then Right c else error "Unexpected store state modification"
+      , \(PutState s _ c) -> if s == Store {storeData = M.fromList [(Path ["a"], "someVal")], storeSubscriptions = M.fromList [(Path ["a"],["someGuy"])]} then Right c else error "Unexpected store state modification"
       , \(SendTo "someGuy" ev c) -> if ev == Updated {eventPath = Path ["a"], oldValue = Nothing, newValue = Just "someVal"} then Right c else error (show ev)
       , \(ReceiveAny c) -> Right (c (Left$ Subscribe (Path ["a"])))
       ]
@@ -56,7 +57,7 @@ prop_send_subpath_to_subscription = noError (
     serverConnection ("addr"::String) `must`
       [ \(ReceiveAny c) -> Right (c (Left$ Put (Path ["a","b"]) (Just "someVal")))
       , \(GetState c) -> Right (c (Store {storeData = M.fromList [], storeSubscriptions = M.fromList [(Path ["a"],["someGuy"])]}))
-      , \(PutState s c) -> if s == Store {storeData = M.fromList [(Path ["a","b"], "someVal")], storeSubscriptions = M.fromList [(Path ["a"],["someGuy"])]} then Right c else error "Unexpected store state modification"
+      , \(PutState s _ c) -> if s == Store {storeData = M.fromList [(Path ["a","b"], "someVal")], storeSubscriptions = M.fromList [(Path ["a"],["someGuy"])]} then Right c else error "Unexpected store state modification"
       , \(SendTo "someGuy" ev c) -> if ev == Updated {eventPath = Path ["a","b"], oldValue = Nothing, newValue = Just "someVal"} then Right c else error (show ev)
       , \(ReceiveAny c) -> Right (c (Left$ Subscribe (Path ["a"])))
       ]
@@ -92,7 +93,7 @@ prop_send_subpath_to_subscription_ng = serverConnection ("addr"::String)
   expect_$ \(GetState c) -> c$ Store {
      storeData = M.fromList [],
      storeSubscriptions = M.fromList [(Path ["a"],["someGuy"])]}
-  expect_$ \(PutState s c) -> if s == Store {
+  expect_$ \(PutState s _ c) -> if s == Store {
     storeData = M.fromList [(Path ["a","b"], v)],
     storeSubscriptions = M.fromList [(Path ["a"],["someGuy"])]}
                              then c
@@ -113,7 +114,7 @@ prop_unsubscribe_not_subscribed_unmodified =
      storeData = M.fromList [],
      storeSubscriptions = M.fromList [(Path ["a"],["someGuy"])]}
   expect_$ \(GetState c) -> c state
-  expect_$ \(PutState s c) -> if s == state then c else error $ show state
+  expect_$ \(PutState s _ c) -> if s == state then c else error $ show state
   expect_$ \(ReceiveAny c) -> c$ Left$ Unsubscribe (Path ["a"])
   continue
 
@@ -127,7 +128,7 @@ prop_unsubscribe_only_once =
      storeData = M.fromList [],
      storeSubscriptions = M.fromList [(Path ["a"],["addr", "someGuy"])]}
   expect_$ \(GetState c) -> c state
-  expect_$ \(PutState s c) -> if s == state' then c else error $ show s
+  expect_$ \(PutState s _ c) -> if s == state' then c else error $ show s
   expect_$ \(ReceiveAny c) -> c$ Left$ Unsubscribe (Path ["a"])
   continue
 
@@ -141,6 +142,6 @@ prop_unsubscribe_only_path =
      storeData = M.fromList [],
      storeSubscriptions = M.fromList [(Path ["it"],["someGuy"]), (Path ["b"],["addr", "someGuy"])]}
   expect_$ \(GetState c) -> c state
-  expect_$ \(PutState s c) -> if s == state' then c else error $ show s
+  expect_$ \(PutState s _ c) -> if s == state' then c else error $ show s
   expect_$ \(ReceiveAny c) -> c$ Left$ Unsubscribe (Path ["a"])
   continue
