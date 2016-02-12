@@ -28,21 +28,27 @@ import System.Environment
 import Network.Socket hiding (shutdown, accept, send)
 import Language.Haskell.TH
 
+-- | Holds the data relevant to a server
 data ServerData = ServerData
-    { servStore :: TVar (Store Handle)
-    , pchan     :: TChan Update
-    , serverPid :: ProcessId
+    { servStore :: TVar (Store Handle)  -- The Store that contains the state of the server
+    , pchan     :: TChan Update         -- A proxychannel which can be used to send messages to the Leader (by a seperate Process on the local Node)
+    , serverPid :: ProcessId            -- The ProccessId of the server
     }
+-- | Holds the data relevant to the leader
 data LeaderData = LeaderData
-    { servers   :: TVar [ProcessId]
-    , workers   :: TVar (Map ProcessId (TVar [Handle]))
-    , requests  :: TVar (Map Text ProcessId)
-    , proxychan :: TChan (Process ())
+    { servers   :: TVar [ProcessId]                         -- List of connected Servers
+    , workers   :: TVar (Map ProcessId (TVar [Handle]))     -- Map containing all clients connected to a specific Server
+    , requests  :: TVar (Map Text ProcessId)                -- Clients that have connected to a server but not yet to the Leader
+    , proxychan :: TChan (Process ())                       -- A proxychannel which can be used to perform actions in the Process Monad 
     }
     
 masterPort :: Int
 masterPort = 44444
 
+-- ---------------------------------------------------------------------------
+-- Leader Code
+
+-- | Builds the LeaderData object and starts the leader Processes 
 leader :: [ProcessId] -> Process ()
 leader procs = do
     s <- liftIO $ newTVarIO procs
@@ -54,6 +60,7 @@ leader procs = do
     spawnLocal $ forever $ join $ liftIO $ atomically $ readTChan pc
     liftIO $ leaderListener ld
 
+-- | Listens to incoming connections from Clients
 leaderListener :: LeaderData -> IO ()
 leaderListener ld = withSocketsDo $ do
     sock <- listenOn (PortNumber (fromIntegral masterPort))
@@ -63,7 +70,8 @@ leaderListener ld = withSocketsDo $ do
         putStrLn ("Accepted client connection from: " ++ show handle) 
         hPutStrLn handle "Hello. Do you have a message for me?"       
         forkFinally (setupClient ld handle) (\_ -> hClose handle)
-        
+
+-- | Adds a clients handle to the workers field, but only after its Server has confirmed the client        
 setupClient :: LeaderData -> Handle -> IO ()
 setupClient ld h = do
     NotifyLeader name <- retryRead h
@@ -83,7 +91,8 @@ setupClient ld h = do
                 handles <- readTVar handlesT
                 writeTVar handlesT $ h:handles
     setupClient ld h
-    
+
+-- | Send the required data to the Server, and listen to the messages it sends
 handleServer :: LeaderData -> ProcessId -> Process ()
 handleServer ld pid = do
     hostName <- liftIO $ getHostName
@@ -91,7 +100,8 @@ handleServer ld pid = do
     (sendPort, recvPort) <- newChan
     send pid sendPort
     forever $ receiveChan recvPort >>= handleLeaderMessages ld      
-    
+
+-- | Handles a single message send by a server    
 handleLeaderMessages :: LeaderData -> Update -> Process ()
 handleLeaderMessages ld u = liftIO $ atomically $ do
     case u of
@@ -102,13 +112,18 @@ handleLeaderMessages ld u = liftIO $ atomically $ do
         reqMap <- readTVar $ requests ld
         let reqMap' = M.insert name pid reqMap
         writeTVar (requests ld) reqMap'
-       
+
+-- ---------------------------------------------------------------------------
+-- Server Code   
+        
+-- | Set some handle settings and start listening to incoming commands         
 talk :: ServerData -> Handle -> IO ()
 talk sd h = do 
     hSetNewlineMode h universalNewlineMode
     hSetBuffering h LineBuffering
     runConnection sd h $ serverConnection h
-    
+
+-- | Handles the IO part of the Server    
 runConnection :: ServerData -> Handle -> ConnectionM Handle a -> IO a
 runConnection sd h (Pure a) = return a
 runConnection sd h (Free f) = run f where
@@ -145,7 +160,8 @@ runConnection sd h (Free f) = run f where
   run (Reply event c) = do
     hPutStrLn h $ "Message to you: " ++ show event
     continue c  
-
+    
+-- | Reads and parses a command
 retryRead :: Read a => Handle -> IO a
 retryRead h =
   do command <- hGetLine h
@@ -154,6 +170,7 @@ retryRead h =
        [x]  ->  return x
        _    ->  hPutStrLn h ("Parse error") >> retryRead h
 
+-- | Handles a single message received from the Leader
 handleRemoteMessage :: TVar (Store Handle) -> Action -> Process ()
 handleRemoteMessage st (Put path newValue) = liftIO $ do
     (store, oldValue) <- atomically $ do
@@ -165,7 +182,8 @@ handleRemoteMessage st (Put path newValue) = liftIO $ do
     let subs = join $ maybeToList $ M.lookup path (storeSubscriptions store)
         message = Updated path oldValue newValue
     mapM_ (\h -> hPutStrLn h $ "To " ++ show h ++ ": " ++ show message) subs
-       
+
+-- | Listens to incoming connection from clients, and starts a new thread for each new connection
 socketListener :: ServerData -> Int -> ProcessId -> HostName -> IO ()
 socketListener sd p pid lHostName = withSocketsDo $ do
     sock <- listenOn (PortNumber (fromIntegral p))
@@ -177,7 +195,8 @@ socketListener sd p pid lHostName = withSocketsDo $ do
         atomically $ writeTChan (pchan sd) $ NewClient pid $ pack name
         hPutStrLn handle ("Connect to the leader located at " ++ show lHostName ++ " at port " ++ show masterPort ++ " and send 'NotifyLeader { name = \"" ++ name ++ "\" }'.")
         forkFinally (talk sd handle) (\_ -> hClose handle)       
-        
+
+-- | Sets up the ServerData object for this server and starts up the different threads/processes that this server uses        
 server :: (Int, ProcessId) -> Process ()
 server (port, lpid) = do 
     st <- liftIO $ newTVarIO emptyStore
@@ -190,7 +209,8 @@ server (port, lpid) = do
     sendPort <- expect
     sendChan mySendPort sendPort
     forever $ do m <- expect; handleRemoteMessage st m
-    
+
+-- | Passes on messages send in a TChan to the Leader   
 serverProxy :: Serializable a => TChan a-> ReceivePort (SendPort a) -> Process ()
 serverProxy pc recvPort = do
     sendPort <- receiveChan recvPort
@@ -199,7 +219,11 @@ serverProxy pc recvPort = do
       sendChan sendPort msg
     
 remotable ['server]
-       
+
+-- ---------------------------------------------------------------------------
+-- Starting up the Leader and Servers
+
+-- | Initial code that starts up a couple of Servers (one on each node, except for its own) and then starts the Leader on itself
 master :: [NodeId] -> Process ()
 master peers = do
     liftIO $ putStrLn "Leader Started"
@@ -215,6 +239,7 @@ master peers = do
 main :: IO ()
 main = distribMain master __remoteTable
 
+-- | Code taken from Simon Marlow that sets up the Cloud Haskell backend 
 distribMain :: ([NodeId] -> Process ()) -> (RemoteTable -> RemoteTable) -> IO ()
 distribMain master frtable = do
   args <- getArgs

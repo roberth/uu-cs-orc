@@ -16,6 +16,8 @@ import Control.Monad
 port :: Int
 port = 44444
 
+-- | Runs the server to which clients can connect
+-- | Every clinets gets a new thread, and one thread listens to incoming connections
 main :: IO ()
 main = do
     putStrLn "Hi"
@@ -26,13 +28,15 @@ main = do
         (handle, host, port) <- accept sock
         putStrLn ("Accepted connection from: " ++ show handle)
         forkFinally (talk st handle) (\_ -> hClose handle)
-          
+ 
+-- | Set some handle settings and start listening to incoming commands 
 talk :: TVar (Store Handle) -> Handle -> IO ()
 talk st h = do
     hSetNewlineMode h universalNewlineMode
     hSetBuffering h LineBuffering
     runConnection st h $ serverConnection h
-    
+
+-- | Handles the IO part of the Server    
 runConnection :: TVar (Store Handle) -> Handle -> ConnectionM Handle a -> IO a
 runConnection st h (Pure a) = return a
 runConnection st h (Free f) = run f where
@@ -66,6 +70,7 @@ runConnection st h (Free f) = run f where
     hPutStrLn h $ "Message to you: " ++ show event
     continue c
 
+-- | Reads and parses a command       
 retryRead :: Read a => Handle -> IO a
 retryRead h =
   do command <- hGetLine h

@@ -1,0 +1,42 @@
+This is a guide on starting up a network of a Leader and some Servers and Clients. 
+This is done for the distributed version of the program, but there are summaries on what to do for the sequential and 
+concurrent versions of the program at the end.
+
+For each server (including the Leader) an instance of the timekeeperd.exe program has to be run. This takes two arguments:
+whether the instance is a slave or a master, and a port used by the Cloud Haskell backend. In our testing, we only tried
+starting all these instances at the same time. For instance, a 2-Server network can be started by the following command:
+"timekeeperd slave 55551 & timekeeperd slave 55552 & timekeeperd master 55553". There should only be one Leader (master)
+per network. If all goes well, the terminal should display some messages in the form "Listening on port ...".
+
+IMPORTANT: There is currently an unresolved bug that sometimes prevents nodes from starting/connecting. Therefore, it is
+important to check whether the number of "Listening on port ..." messages corresponds to the number of servers started.
+The message send by the Leader indicates this, and in our testing the Leader always send this message. If some messages
+are missing, restarting the program works (possibly after a few tries). We expect this bug has to do either with sockets 
+that aren't closed properly (and unavailable in a later test), or with the master starting before the slaves have started.
+
+The ports displayed in these messages do not correspond to the ports given as arguments, since the given ports are only used
+by the Cloud Haskell backend, and the ports in the messages are the actual ports the servers are listening on. 
+Clients can be any application, but in this test we will simulate some clients simply with terminals. A terminal can connect
+to a Server using the port shown in the messages; for instance the command "nc localhost 44445" connects to the Server listening
+on the 44445 port (on the local machine). The Server will immediately send a message telling the Client to also connect to the 
+Leader and send a special message. This message can simply be copied from the terminal, and one can connect to the Leader in a new
+terminal and send the message. (In the current program this doesn't really do anything yet, but it can later be used to send 
+messages from the Leader to a Client if its Server goes down.) The rest of the contact should be done in the Server terminal.
+
+A client can send Actions (from Protocol.hs) to the Server in record format. For instance, a Put message can be send by typing
+"Put { path = Path ["a"], putNewValue = Just "test1" }". This puts the given value (test1) in a position (a) in the server state.
+A (different) Client can read this out using the Get command: "Get { path = Path ["a"] }". The other commands work in similar ways.
+If a Client subscribes to a certain path, any change made to the state of that path gets send to this Client (even if the Client 
+that changes it is connected to a different Server than the subscribed Client). If the change occurs in a subpath of the path
+to which the Client is subscribed (i.e. a change happens in ["a", "1"] and the Client is subscribed to ["a"]) it also gets a 
+notification. The GetChildren command return the children of a given path, so if the paths ["a", "1"] and ["a", "2"] exist, the 
+children of path ["a"] are "1" and "2". The NotifyLeader command should only be given to the Leader when connecting to it. The
+specific command (with the name) is send by the Server after connecting to it. 
+
+CONCURRENT:
+The concurrent version of the program is basically the distributed version with only one Server (and no Leader). Therefore
+any Client only needs to connect to this one Server, and no command line arguments have to be given to timekeeperd.exe.
+
+SEQUENTIAL:
+The sequential version of the program is basically the concurrent version with only a single Server with a single Client. 
+Therefore, no terminal has to be started for the Client; input can be given in the same terminal as timekeeperd.exe was started.

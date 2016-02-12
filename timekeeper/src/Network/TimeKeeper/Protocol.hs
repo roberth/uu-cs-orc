@@ -47,7 +47,7 @@ instance Binary Event
 -- | The set of updates emitted by servers to each other
 data Update = PutUpdate    { pid :: ProcessId, updatePath :: Path, updatedValue :: Maybe Text }
             | NewClient    { pid :: ProcessId, clientName :: Text }
-        --  | Subscribe   
+        --  | Subscribe    -- Ideally, the Leader gets notified of subscription so clients do not have to subscribe again when they switch to another server
         --  | Unsubscribe 
             deriving (Eq, Ord, Show, Typeable, Generic)
 instance Binary Update
