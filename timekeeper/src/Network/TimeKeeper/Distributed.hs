@@ -81,7 +81,6 @@ setupClient ld h = do
       reqMap <- readTVar $ requests ld
       case M.lookup name reqMap of
           Nothing ->
-            traceM "Retrying because of missing name in reqMap" >>
             retry
           Just pid -> do
             workerMap <- readTVar $ workers ld
