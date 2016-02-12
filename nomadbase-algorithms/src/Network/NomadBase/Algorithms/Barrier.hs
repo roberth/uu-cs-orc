@@ -5,16 +5,26 @@ import Network.TimeKeeper.Protocol
 import Network.TimeKeeper.Protocol((/),slash)
 import qualified Data.Text as T
 import Data.Text (Text)
-import Control.Monad.Free
+import Control.Monad.Freer
 
-data ChanEff r t c = Send t c
-                   | Receive (r -> c)
-                   deriving (Functor)
+data Send t a where
+  Send :: t -> Send t ()
 
-type ChanM r t = Free (ChanEff r t)
+data Receive r a where
+  Receive :: Receive r r
 
-transmit t = liftF (Send t ())
-receive = liftF (Receive id)
+type Chan r t l = (Member (Send t) l, Member (Receive r) l)
+
+type Client a = Chan Event Action a
+type Server a = Chan Action Event a
+
+-- type ChanM r t = Eff '[ChanEff r t]
+
+transmit :: Member (Send t) e => t -> Eff e ()
+transmit = send . Send
+
+receive :: Member (Receive r) e => Eff e r
+receive = send Receive
 
 -- | Wait for a barrier
 --
@@ -23,7 +33,7 @@ receive = liftF (Receive id)
 --  * the number of nodes to wait for the barrier
 --  * a unique name for this host
 --  * a server connection (implicit in @m@)
-barrier :: Path -> Int -> Text -> ChanM Event Action ()
+barrier :: Client l => Path -> Int -> Text -> Eff l ()
 barrier basePath nNodes name = do
   let barrierBase = basePath `slash` Path [":barrier"]
       myPath = barrierBase `slash` Path [name]

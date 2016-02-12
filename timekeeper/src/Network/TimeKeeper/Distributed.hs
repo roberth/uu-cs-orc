@@ -28,6 +28,7 @@ import System.Environment
 import Network.Socket hiding (shutdown, accept, send)
 import Language.Haskell.TH
 
+
 -- | Holds the data relevant to a server
 data ServerData = ServerData
     { servStore :: TVar (Store Handle)  -- The Store that contains the state of the server
@@ -79,7 +80,8 @@ setupClient ld h = do
     atomically $ do
       reqMap <- readTVar $ requests ld
       case M.lookup name reqMap of
-          Nothing -> retry
+          Nothing ->
+            retry
           Just pid -> do
             workerMap <- readTVar $ workers ld
             case M.lookup pid workerMap of

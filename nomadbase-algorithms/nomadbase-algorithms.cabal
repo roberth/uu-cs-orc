@@ -19,9 +19,9 @@ library
   exposed-modules:
     Network.NomadBase.Algorithms.Barrier
   -- other-modules:       
-  default-extensions:    MultiParamTypeClasses, FunctionalDependencies, FlexibleContexts, OverloadedStrings, DeriveFunctor, NoMonomorphismRestriction, FlexibleContexts, LambdaCase, ExistentialQuantification, StandaloneDeriving, ImpredicativeTypes, TupleSections, GeneralizedNewtypeDeriving, EmptyDataDecls, ScopedTypeVariables
-  build-depends:       base, timekeeper, text, free, containers, mtl,
-    HTF, test-framework-quickcheck2, test-framework-hunit, QuickCheck, HUnit
+  default-extensions:    MultiParamTypeClasses, FunctionalDependencies, FlexibleContexts, OverloadedStrings, DeriveFunctor, NoMonomorphismRestriction, FlexibleContexts, LambdaCase, ExistentialQuantification, StandaloneDeriving, ImpredicativeTypes, TupleSections, GeneralizedNewtypeDeriving, EmptyDataDecls, ScopedTypeVariables, GADTs, TypeOperators, DataKinds, ConstraintKinds
+  build-depends:       base, timekeeper, text, free, containers, mtl, profunctors, contravariant,
+    HTF, test-framework-quickcheck2, test-framework-hunit, QuickCheck, HUnit, freer
   hs-source-dirs:      src
   default-language:    Haskell2010
 
@@ -30,7 +30,7 @@ test-suite test-suite
   type: exitcode-stdio-1.0
   main-is:
     AllTests.hs
-  default-extensions:          Rank2Types, DeriveFunctor, OverloadedStrings, ScopedTypeVariables, ImpredicativeTypes, TupleSections, GeneralizedNewtypeDeriving, NoMonomorphismRestriction, FlexibleContexts, LambdaCase, ExistentialQuantification, StandaloneDeriving, EmptyDataDecls, ScopedTypeVariables
+  default-extensions:          Rank2Types, DeriveFunctor, OverloadedStrings, ScopedTypeVariables, ImpredicativeTypes, TupleSections, GeneralizedNewtypeDeriving, NoMonomorphismRestriction, FlexibleContexts, LambdaCase, ExistentialQuantification, StandaloneDeriving, EmptyDataDecls, ScopedTypeVariables, GADTs, TypeOperators, DataKinds, ConstraintKinds
   build-depends:
-    timekeeper, nomadbase-algorithms, base, text, free, containers, mtl,
-    HTF, test-framework-quickcheck2, test-framework-hunit, QuickCheck, HUnit
+    timekeeper, nomadbase-algorithms, base, text, free, containers, mtl, profunctors, contravariant,
+    HTF, test-framework-quickcheck2, test-framework-hunit, QuickCheck, HUnit, freer
